@@ -32,8 +32,6 @@ install-ci:  ## Same as install but from lockfiles only (npm ci) -- use this in 
 	cd server && $(NPM) ci
 	cd e2e && $(NPM) ci
 	$(MAKE) db-generate
-	$(MAKE) db-migrate
-	$(MAKE) db-seed
 
 hooks:  ## Install the Husky commit-msg hook (root install)
 	$(NPM) install

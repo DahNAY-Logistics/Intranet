@@ -1,2 +1,3 @@
 # Intranet
-Internal Application for Announcements and other stuffs
+
+Internal web application for organization-wide communication: announcements, events, resources, quick links, upcoming employee birthdays, and a daily mood check-in.

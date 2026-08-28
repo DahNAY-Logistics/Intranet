@@ -1,0 +1,51 @@
+import { Router } from 'express';
+
+import announcementCategoriesRouter from './announcement-categories.ts';
+import announcementsRouter from './announcements.ts';
+import attachmentsRouter from './attachments.ts';
+import bannerCategoriesRouter from './banner-categories.ts';
+import bannersRouter from './banners.ts';
+import blogsRouter from './blogs.ts';
+import dashboardRouter from './dashboard.ts';
+import departmentsRouter from './departments.ts';
+import designationsRouter from './designations.ts';
+import directoryRouter from './directory.ts';
+import eventCategoriesRouter from './event-categories.ts';
+import eventsRouter from './events.ts';
+import locationsRouter from './locations.ts';
+import meRouter from './me.ts';
+import moodCheckInsRouter from './mood-check-ins.ts';
+import quickLinkCategoriesRouter from './quick-link-categories.ts';
+import quickLinksRouter from './quick-links.ts';
+import resourceCategoriesRouter from './resource-categories.ts';
+import resourcesRouter from './resources.ts';
+import settingsRouter from './settings.ts';
+import userHighlightsRouter from './user-highlights.ts';
+import usersRouter from './users.ts';
+
+const router = Router();
+
+router.use('/announcements/categories', announcementCategoriesRouter);
+router.use('/announcements', announcementsRouter);
+router.use('/attachments', attachmentsRouter);
+router.use('/banners/categories', bannerCategoriesRouter);
+router.use('/banners', bannersRouter);
+router.use('/blogs', blogsRouter);
+router.use('/dashboard', dashboardRouter);
+router.use('/directory', directoryRouter);
+router.use('/events/categories', eventCategoriesRouter);
+router.use('/events', eventsRouter);
+router.use('/me', meRouter);
+router.use('/mood-check-ins', moodCheckInsRouter);
+router.use('/quick-links/categories', quickLinkCategoriesRouter);
+router.use('/quick-links', quickLinksRouter);
+router.use('/resources/categories', resourceCategoriesRouter);
+router.use('/resources', resourcesRouter);
+router.use('/settings', settingsRouter);
+router.use('/users/departments', departmentsRouter);
+router.use('/users/designations', designationsRouter);
+router.use('/users/highlights', userHighlightsRouter);
+router.use('/users/locations', locationsRouter);
+router.use('/users', usersRouter);
+
+export default router;

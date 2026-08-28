@@ -1,0 +1,424 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  User
+  Admin
+}
+
+enum UserStatus {
+  Active
+  Inactive
+}
+
+model User {
+  id            String       @id
+  name          String
+  email         String
+  emailVerified Boolean      @default(false)
+  image         String?
+  role          Role         @default(User)
+  status        UserStatus   @default(Active)
+
+  employeeId    String?      @unique
+
+  designationId Int?
+  designation   Designation? @relation(fields: [designationId], references: [id], onDelete: Restrict)
+
+  departmentId  Int?
+  department    Department?  @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+
+  locationId    Int?
+  location      Location?    @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  dob           DateTime?
+  joinedDate    DateTime?
+
+  reportedToId  String?
+  reportedTo    User?        @relation("Reporting", fields: [reportedToId], references: [id], onDelete: SetNull)
+  reports       User[]       @relation("Reporting")
+
+  sessions      Session[]
+  accounts      Account[]
+
+  banners       Banner[]
+  announcements Announcement[]
+  events        Event[]
+  quickLinks    QuickLink[]
+  resources     Resource[]
+  moodCheckIns  MoodCheckIn[]
+
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@unique([email])
+  @@index([status])
+  @@index([departmentId])
+  @@index([designationId])
+  @@index([locationId])
+  @@index([reportedToId])
+  @@map("user")
+}
+
+model Department {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users     User[]
+
+  @@map("department")
+}
+
+model Designation {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users     User[]
+
+  @@map("designation")
+}
+
+model Location {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users     User[]
+
+  @@map("location")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  ipAddress String?
+  userAgent String?
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model Attachment {
+  id        Int      @id @default(autoincrement())
+  url       String
+
+  createdAt DateTime @default(now())
+
+  banner Banner?
+
+  @@map("attachment")
+}
+
+enum BannerStatus {
+  Published
+  Archived
+}
+
+model BannerCategory {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  banners   Banner[]
+
+  @@map("banner_category")
+}
+
+model Banner {
+  id           Int            @id @default(autoincrement())
+  title        String
+  excerpt      String
+  status       BannerStatus   @default(Published)
+  displayOrder Int            @default(0)
+  startDate    DateTime
+  endDate      DateTime
+
+  categoryId   Int
+  category     BannerCategory @relation(fields: [categoryId], references: [id])
+
+  postedById   String
+  postedBy     User           @relation(fields: [postedById], references: [id])
+
+  attachmentId Int            @unique
+  attachment   Attachment     @relation(fields: [attachmentId], references: [id])
+
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([status, displayOrder])
+  @@index([categoryId])
+  @@map("banner")
+}
+
+enum AnnouncementStatus {
+  Published
+  Archived
+}
+
+model AnnouncementCategory {
+  id            Int            @id @default(autoincrement())
+  name          String         @unique
+
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  announcements Announcement[]
+
+  @@map("announcement_category")
+}
+
+model Announcement {
+  id         Int                  @id @default(autoincrement())
+  title      String
+  excerpt    String
+  status     AnnouncementStatus   @default(Published)
+
+  categoryId Int
+  category   AnnouncementCategory @relation(fields: [categoryId], references: [id])
+
+  postedById String
+  postedBy   User                 @relation(fields: [postedById], references: [id])
+
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+
+  @@index([status, createdAt])
+  @@index([categoryId])
+  @@map("announcement")
+}
+
+enum EventMode {
+  Online
+  Offline
+  Hybrid
+}
+
+enum EventStatus {
+  Published
+  Archived
+}
+
+model EventCategory {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events    Event[]
+
+  @@map("event_category")
+}
+
+model Event {
+  id         Int           @id @default(autoincrement())
+  title      String
+  excerpt    String
+  status     EventStatus   @default(Published)
+  mode       EventMode
+  location   String
+  startDate  DateTime
+  endDate    DateTime
+
+  categoryId Int
+  category   EventCategory @relation(fields: [categoryId], references: [id])
+
+  postedById String
+  postedBy   User          @relation(fields: [postedById], references: [id])
+
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@index([status, startDate])
+  @@index([categoryId])
+  @@map("event")
+}
+
+enum QuickLinkStatus {
+  Published
+  Archived
+}
+
+model QuickLinkCategory {
+  id         Int         @id @default(autoincrement())
+  name       String      @unique
+
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  quickLinks QuickLink[]
+
+  @@map("quick_link_category")
+}
+
+model QuickLink {
+  id         Int               @id @default(autoincrement())
+  title      String
+  excerpt    String
+  url        String
+  status     QuickLinkStatus   @default(Published)
+
+  categoryId Int
+  category   QuickLinkCategory @relation(fields: [categoryId], references: [id])
+
+  postedById String
+  postedBy   User              @relation(fields: [postedById], references: [id])
+
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  @@index([status, createdAt])
+  @@index([categoryId])
+  @@map("quick_link")
+}
+
+enum ResourceStatus {
+  Published
+  Archived
+}
+
+model ResourceCategory {
+  id        Int        @id @default(autoincrement())
+  name      String     @unique
+
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  resources Resource[]
+
+  @@map("resource_category")
+}
+
+model Resource {
+  id         Int              @id @default(autoincrement())
+  title      String
+  excerpt    String
+  content    String
+  url        String?
+  status     ResourceStatus   @default(Published)
+
+  categoryId Int
+  category   ResourceCategory @relation(fields: [categoryId], references: [id])
+
+  postedById String
+  postedBy   User             @relation(fields: [postedById], references: [id])
+
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  @@index([status, createdAt])
+  @@index([categoryId])
+  @@map("resource")
+}
+
+enum Mood {
+  VeryHappy
+  Happy
+  Neutral
+  Sad
+  VerySad
+}
+
+model MoodCheckIn {
+  id        Int      @id @default(autoincrement())
+  date      DateTime @db.Date
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, date])
+  @@map("mood_check_in")
+}
+
+model MoodEntry {
+  id        Int      @id @default(autoincrement())
+  mood      Mood
+  date      DateTime @db.Date
+
+  createdAt DateTime @default(now())
+
+  @@index([date])
+  @@map("mood_entry")
+}
+
+model Settings {
+  id               Int      @id @default(autoincrement())
+  siteName         String
+  organizationName String
+  supportEmail     String
+  codeOfConductUrl String?
+  privacyPolicyUrl String?
+  maintenanceMode  Boolean  @default(false)
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("settings")
+}

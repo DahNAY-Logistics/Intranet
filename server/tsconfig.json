@@ -1,0 +1,43 @@
+{
+  "compilerOptions": {
+    // Runtime & Language
+    "target": "es2023",
+    "lib": ["ES2023"],
+    "types": ["node"],
+
+    // Modules & Module Resolution
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "verbatimModuleSyntax": true,
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+
+    // Type Checking
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": false,
+
+    // Code Quality
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // Library & Module Interoperability
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+
+    // Build / Output
+    "noEmit": true,
+    "sourceMap": true,
+    "declaration": false,
+
+    // Path Aliases
+    "paths": {
+      "src/*": ["./src/*"],
+      "core/*": ["../core/*"]
+    }
+  },
+  "include": ["src", "prisma.config.ts", "prisma/seed.ts", "../core"]
+}

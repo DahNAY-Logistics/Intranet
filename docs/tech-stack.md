@@ -1,0 +1,11 @@
+# Tech Stack
+
+- Frontend: React (TypeScript), bundled with Vite
+- Backend: Express (Node.js, TypeScript)
+- Database access & migrations: Prisma
+- Cloud: Microsoft Azure
+  - Hosting: Azure App Service
+  - Database: Azure Database for PostgreSQL
+  - File storage (banner attachments): Azure Blob Storage
+  - Scheduled jobs: Azure Functions (timer trigger)
+- Authentication: Better Auth, with Zoho SSO as the OIDC provider

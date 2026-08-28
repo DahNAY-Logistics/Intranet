@@ -1,5 +1,6 @@
 {
   "name": "intranet",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "Repo-root tooling only (git hooks, commit linting). Application code lives in client/ and server/, which are installed independently.",

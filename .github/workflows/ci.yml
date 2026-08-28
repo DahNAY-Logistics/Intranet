@@ -3,8 +3,6 @@ name: CI
 on:
   pull_request:
     branches: [main, dev]
-  push:
-    branches: [dev]
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -14,6 +12,9 @@ jobs:
   test:
     name: Lint, typecheck, build, test
     runs-on: ubuntu-latest
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/intranet_test?schema=public
 
     services:
       postgres:
@@ -68,7 +69,7 @@ jobs:
       - name: Configure e2e environment
         run: |
           make e2e-env
-          sed -i "s|^DATABASE_URL=.*|DATABASE_URL=postgresql://postgres:postgres@localhost:5432/intranet_test?schema=public|" e2e/.env.test
+          sed -i "s|^DATABASE_URL=.*|DATABASE_URL=$DATABASE_URL|" e2e/.env.test
           sed -i "s|^BETTER_AUTH_SECRET=.*|BETTER_AUTH_SECRET=$(openssl rand -base64 32)|" e2e/.env.test
 
       - name: E2E tests

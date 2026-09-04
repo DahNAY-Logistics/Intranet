@@ -2,6 +2,7 @@ export const commonMessages = {
   ACCESS_DENIED: 'Access denied. Contact your administrator if you believe this is a mistake.',
   UNAUTHORIZED: 'Unauthorized',
   FORBIDDEN: 'Forbidden',
+  NOT_FOUND: 'Not found',
   TOO_MANY_REQUESTS: 'Too many requests. Please try again later.',
   VALIDATION_FAILED: 'Validation failed',
   INVALID_QUERY: 'Invalid query parameters',

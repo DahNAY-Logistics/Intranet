@@ -1,0 +1,41 @@
+# Dependencies are installed inside the image, never copied from the host.
+node_modules
+**/node_modules
+
+# Version control and repo tooling
+.git
+.github
+.husky
+.claude
+.agents
+.vscode
+.idea
+
+# Secrets. Patterns are relative to the context root, so these need ** to reach
+# client/.env and server/.env -- every value the container needs is supplied as
+# an environment variable at run time.
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Build output and incremental build caches
+dist
+build
+**/dist
+**/*.tsbuildinfo
+
+# End-to-end suite: it drives a dev-mode stack and is never run from the image.
+e2e
+
+# Local Blob Storage emulator state
+.azurite
+**/.azurite
+
+# Documentation and host-only task runners
+docs
+*.md
+Makefile
+Dockerfile
+.dockerignore
+docker-compose*.yml

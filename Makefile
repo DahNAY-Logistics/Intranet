@@ -7,10 +7,15 @@ NPM := npm
 # Base ref that `lint-commits` compares this branch against.
 LINT_COMMITS_FROM ?= origin/main
 
+# Lazily expanded (=, not :=) so this only runs when docker-build-prod actually references it,
+# not on every `make` invocation.
+VITE_SENTRY_DSN = $(shell grep -m1 '^VITE_SENTRY_DSN=' client/.env 2>/dev/null | cut -d '=' -f2-)
+
 .PHONY: help install install-ci hooks db-generate db-migrate db-seed \
         lint lint-fix lint-commits typecheck check build clean \
         test test-client test-e2e test-e2e-ui test-e2e-headed \
         e2e-env e2e-browsers azurite \
+        docker-build docker-up docker-down docker-logs \
         ci ci-test-e2e
 
 # -- Setup ---------------------------------------------------------------
@@ -102,6 +107,22 @@ ci-test-e2e: e2e-env e2e-browsers  ## e2e for CI: boots Azurite, runs Playwright
 	azurite_pid=$$!; \
 	trap 'kill $$azurite_pid 2>/dev/null || true' EXIT; \
 	cd e2e && $(NPM) test
+
+# -- Container -----------------------------------------------------------
+
+# The image runs the server's TypeScript through tsx and serves client/dist from
+# Express, so a single container is the whole app. See docs/deployment.md.
+docker-build:  ## Build the production container image (tag: intranet:local), Sentry DSN from client/.env
+	docker build --build-arg VITE_SENTRY_DSN="$(VITE_SENTRY_DSN)" -t intranet:local .
+
+docker-up:  ## Start app + postgres via docker compose (needs server/.env, see server/.env.example)
+	docker compose --env-file server/.env up -d --build
+
+docker-down:  ## Stop the docker compose stack (keeps the postgres volume)
+	docker compose --env-file server/.env down
+
+docker-logs:  ## Follow logs from the docker compose stack
+	docker compose --env-file server/.env logs -f
 
 # -- Build & cleanup -----------------------------------------------------
 

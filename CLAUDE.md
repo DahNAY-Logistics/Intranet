@@ -21,8 +21,11 @@ domain-restricted Zoho SSO.
 See [docs/project-scope.md](./docs/project-scope.md) (features), [docs/tech-stack.md](./docs/tech-stack.md)
 (stack), [docs/implementation-plan.md](./docs/implementation-plan.md) (phased build order — source of
 truth for what's next). Phases 0–1 done (Zoho SSO, roles, login UI, client route protection). Phase 2
-(domain models + admin CRUD) is next. Not started: Azure App Service, Azure DB for PostgreSQL, Azure
-Blob Storage, and a timer-trigger Azure Function for auto-expiring announcements/events.
+(domain models + admin CRUD) is next. The app is container-ready — one image serves the API and the
+built client from a single origin (`Dockerfile`,
+[docs/deployment.md](./docs/deployment.md)) — but nothing is provisioned on Azure yet, and no
+registry or deploy workflow has been chosen. Not started: a timer-trigger Azure Function for
+auto-expiring announcements/events.
 
 ## Current state
 
@@ -89,9 +92,22 @@ else is guarded — add a guard when you add a variable.
 
 `NODE_ENV` gates: `trust proxy` in `src/index.ts` (for Azure App Service TLS termination) and
 `src/middleware/rate-limit.ts` (both compare against `environment.production` from
-`core/constants.ts`, never a bare literal). Below `production` both limiters pass through — a new
-limit is untested until something runs with `NODE_ENV=production`. `authRateLimit` (10/15min) on
-`/api/auth`, `apiRateLimit` (100) on `/api` — ordering matters, see Architecture.
+`core/constants.ts`, never a bare literal), and the static-client block in `src/index.ts`. Below
+`production` every limiter passes through — a new limit is untested until something runs with
+`NODE_ENV=production`, which only the container does.
+
+Three limiters, deliberately split: `authRateLimit` (10/15min) on `/api/auth/sign-in` and
+`/api/auth/oauth2`, `sessionRateLimit` (300/15min) on the rest of `/api/auth`, `apiRateLimit`
+(100/15min) on `/api` — ordering matters, see Architecture. The split exists because `useSession()`
+hits `/api/auth/get-session` on every page load, so a single 10/15min budget over all of `/api/auth`
+would lock a normal user out after ~10 page loads. Keep credential endpoints on the strict tier.
+
+**Better Auth's own rate limiter is disabled** (`rateLimit: { enabled: false }` in `auth.ts`) — it
+resolves the client IP from headers itself and, since 1.6.21, refuses to trust multi-hop
+`X-Forwarded-For` chains, which is exactly what Azure App Service sends. Left enabled it buckets
+every user together and `429`s everybody under load. `express-rate-limit` resolves the IP correctly
+via `trust proxy`, so it owns `/api/auth`. Don't re-enable the Better Auth one without also solving
+its IP resolution.
 
 `src/db.ts` builds `PrismaClient` on `@prisma/adapter-pg`, so the connection URL comes from
 `process.env.DATABASE_URL` directly, not the schema's `datasource` block — `prisma.config.ts` passes
@@ -118,8 +134,13 @@ Not an npm-workspaces monorepo. Root `package.json` is tooling-only (Husky + com
 `workspaces`). `client/`, `server/`, `e2e/` each install independently. `core/` is shared TS source
 with no `package.json` — see Architecture.
 
-`server/package.json` says `"main": "dist/index.js"` but `tsconfig.json` is `noEmit`, so `dist/` is
-never written — wire up a real build or drop the field before relying on it.
+**The server has no build step, on purpose — its TypeScript *is* the artifact.** `tsconfig.json`
+stays `noEmit`, imports keep their `.ts` extensions, and `src/*`/`core/*` stay bare aliases;
+`npm start` is `tsx src/index.ts`, in production too. That is why `tsx` and the `prisma` CLI (for
+`migrate deploy`) are **runtime dependencies**, not dev dependencies — `npm ci --omit=dev` must still
+produce a bootable server. The stale `"main": "dist/index.js"` field has been dropped. Don't
+reintroduce a bundler/emit step without re-solving `.ts` specifiers, the bare aliases, and `core/`
+living outside `rootDir`.
 
 `zod` is back as a server dependency (was removed with the env schema; reinstalled for request
 validation — see `server/src/lib/validate.ts` under Conventions). It's a `server/`-only dependency,
@@ -380,6 +401,37 @@ stay in `e2e/`; don't duplicate coverage across both).
 Testing was originally slated for Phase 6; component tests now exist ahead of that, but e2e specs are
 still unwritten.
 
+**Container** — `make docker-build` builds the production image (`intranet:local`); `make help`
+lists every target. `docker-compose.yml` runs the app alongside a `postgres:17-alpine` service on a
+named volume (`postgres_data`) — `make docker-up`/`docker-down`/`docker-logs` wrap `docker compose`.
+**One env file, `server/.env`, covers both**: `POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB`
+live there too (see `server/.env.example`), and every `make docker-*` target passes
+`--env-file server/.env` so compose's own `${...}` interpolation reads it (compose's default is a
+bare `.env` in the project root, which this repo deliberately doesn't have — one file, one place to
+fill in, instead of a root file plus `server/.env`). The app service's `DATABASE_URL` is still set
+by compose itself (`postgres` as hostname, the compose network's internal DNS), overriding whatever
+sits in `server/.env`'s own `DATABASE_URL` line. See [docs/deployment.md](./docs/deployment.md) for
+the full setup, backup notes, and the plain-image `docker run` form (still supported for pointing at
+an externally-managed Postgres).
+
+The image is the only place `NODE_ENV=production` is exercised, so it's the only way to test
+`trust proxy`, the three rate limiters, and the SPA fallback. Two things bite when running it
+locally: the container's `localhost` is itself, so `DATABASE_URL` and the Azurite endpoint must use
+`host.docker.internal` (`UseDevelopmentStorage=true` won't find a host Azurite); and
+`VITE_SENTRY_DSN` is set at **build** time (an `ENV` in the Dockerfile's build stage), not at run
+time — Vite inlines `import.meta.env.VITE_*` into the bundle, so an App Service setting does nothing.
+
+Base image is `node:24-bookworm-slim` (Debian), not Alpine — switched for Prisma/glibc compatibility
+(Prisma's own Docker guide recommends Debian's `node:slim` "when encountering compatibility issues
+with Alpine"), at the cost of a larger CVE surface than Alpine. Two Dockerfile details that look
+droppable and aren't: `apt-get install openssl` (`bookworm-slim` omits it just like Alpine does, and
+Prisma probes for it to choose an engine — without it every boot logs an engine-mismatch warning),
+and the placeholder `DATABASE_URL` in the build stage (`prisma.config.ts` resolves
+`env('DATABASE_URL')`, so `prisma generate` hard-fails without it even though it never connects).
+`.dockerignore` needs `**/.env*`, not `.env*` — patterns are relative to the context root, so the
+bare form does not match `server/.env` and `COPY server ./server` bakes the real secrets into the
+image.
+
 **.claude/** — committed and shared:
 
 - `.claude/agents/security-reviewer.md` — auth-bypass/access-control/privacy-invariant review; use
@@ -408,16 +460,36 @@ the built client must do the same or `/login` 404s on refresh.
 `CLIENT_URL`/`BETTER_AUTH_URL` are both `http://localhost:5173` (the client origin, not the API port)
 since CORS, `trustedOrigins`, OAuth redirect URI and cookie domain all derive from it.
 
-**Middleware order in `server/src/index.ts` is load-bearing:** `requestMetrics` → `helmet` → `cors` →
-`authRateLimit` (`/api/auth`) → Better Auth handler → `apiRateLimit` (`/api`) → `express.json()` →
-routes → `Sentry.setupExpressErrorHandler`.
+**Middleware order in `server/src/index.ts` is load-bearing:** `requestMetrics` → `helmet` →
+`cors` → `GET /api/health` → `authRateLimit` (`/api/auth/sign-in`, `/api/auth/oauth2`) →
+`sessionRateLimit` (`/api/auth`) → Better Auth handler → `apiRateLimit` (`/api`) → `express.json()` →
+routes → `/api` JSON 404 → static client + SPA fallback (production only) →
+`Sentry.setupExpressErrorHandler`.
 
 - Better Auth handler (`app.all('/api/auth/*splat', ...)`, Express 5 named wildcard) must precede
   `express.json()` — it reads the raw body itself; a JSON parser consuming it first hangs auth
   requests silently.
-- `authRateLimit` must precede the handler it protects.
+- Both auth limiters must precede the handler they protect. The strict one is mounted first so a
+  sign-in is counted against it; `sessionRateLimit` then overwrites the `RateLimit-*` response
+  headers, so read a 429 rather than the headers when checking which tier fired.
 - `apiRateLimit` sits after the auth handler so auth traffic isn't double-counted against both
   budgets.
+- `/api/health` is mounted **above** `apiRateLimit` on purpose — Azure's health probe would
+  otherwise consume the 100/15min `/api` budget from the probe's IP.
+- The `/api` JSON 404 must come **before** the SPA fallback, or unknown API paths return
+  `index.html` with a `200` instead of a 404.
+- The static block is production-only (`express.static(clientDist)` + `app.get('/{*path}')`,
+  `clientDist` = `../../client/dist`, which is `/app/client/dist` in the image). In dev the browser
+  is served by Vite on `:5173` instead.
+- **Serving `index.html` from Express means helmet's default CSP now applies to a document for the
+  first time** — in dev it only ever reached API responses. The defaults (`img-src 'self' data:`,
+  `connect-src 'self'`, no `worker-src`) will block Blob Storage and Ghost images, the browser
+  Sentry SDK, and Sentry Replay's worker. `helmet()` is currently left bare, so this is an open
+  production risk tracked in [docs/deployment.md](./docs/deployment.md) — check the browser console
+  against the container before go-live. If it needs widening, pass
+  `helmet({ contentSecurityPolicy: { directives: { ... } } })`; helmet merges with its defaults via
+  `useDefaults`, so don't respread `getDefaultDirectives()`, and a default directive can only be
+  removed by setting it to `null` (destructuring it out silently does nothing).
 
 **Three independent TypeScript programs, deliberately different:**
 

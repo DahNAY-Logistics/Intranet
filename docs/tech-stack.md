@@ -4,8 +4,7 @@
 - Backend: Express (Node.js, TypeScript)
 - Database access & migrations: Prisma
 - Cloud: Microsoft Azure
-  - Hosting: Azure App Service
-  - Database: Azure Database for PostgreSQL
+  - Hosting: Azure VM (Docker)
+  - Database: PostgreSQL, self-hosted on that same VM
   - File storage (banner attachments): Azure Blob Storage
-  - Scheduled jobs: Azure Functions (timer trigger)
 - Authentication: Better Auth, with Zoho SSO as the OIDC provider

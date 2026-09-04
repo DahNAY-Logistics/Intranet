@@ -71,6 +71,8 @@ on progressively larger layouts. This is a standing requirement, not a deferred 
 ## Phase 6 — Launch
 
 1. Final UAT with a pilot group of employees
-2. Write Dockerfile for server and client
-3. Set up Docker Compose for local development
-4. Write deployment configuration and automated CI phase.
+2. ~~Write Dockerfile for server and client~~ — done: one image, Express serves the API and
+   `client/dist` from a single origin
+3. Write deployment configuration and automated CI phase — partially done: see
+   [deployment.md](./deployment.md). The image and its settings are documented; the registry and
+   deploy workflow are still an open choice.

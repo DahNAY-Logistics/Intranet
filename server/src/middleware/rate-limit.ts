@@ -27,4 +27,6 @@ function createLimiter(windowMs: number, limit: number): RequestHandler {
 
 export const authRateLimit = createLimiter(15 * 60 * 1000, 10);
 
+export const sessionRateLimit = createLimiter(15 * 60 * 1000, 300);
+
 export const apiRateLimit = createLimiter(15 * 60 * 1000, 100);

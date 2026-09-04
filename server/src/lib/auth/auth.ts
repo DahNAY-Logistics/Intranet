@@ -36,6 +36,10 @@ export const auth = betterAuth({
 
   trustedOrigins: [CLIENT_URL],
 
+  rateLimit: {
+    enabled: false,
+  },
+
   session: {
     expiresIn: 60 * 60 * 24 * 30,
     updateAge: 60 * 60 * 24,
